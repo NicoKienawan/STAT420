@@ -1,0 +1,156 @@
+---
+title: "STAT 420: Project 1"
+author: "Nico Kienawan, nicok2"
+date: "4/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part 1
+```{r}
+library(faraway)
+data(prostate)
+
+RMSE = function(model) {
+  sqrt(mean(resid(model) ^ 2))
+}
+
+model_1 = lm(lpsa ~ ., data = prostate) # all possible predictors
+model_2 = lm(lpsa ~ lcavol, data = prostate) # only lcavol
+model_3 = lm(lpsa ~ lcavol + lweight + svi, data = prostate) # best
+model_4 = lm(lpsa ~ lcavol + lweight + age + lbph, data = prostate)
+model_5 = lm(lpsa ~ lcavol + lweight + svi + lbph + lcp + pgg45, data = prostate)
+
+rs_1 = summary(model_1)$r.squared
+rs_2 = summary(model_2)$r.squared
+rs_3 = summary(model_3)$r.squared
+rs_4 = summary(model_4)$r.squared
+rs_5 = summary(model_5)$r.squared
+rs = c(rs_1, rs_2, rs_3, rs_4, rs_5)
+
+rmse_1 = RMSE(model_1)
+rmse_2 = RMSE(model_2)
+rmse_3 = RMSE(model_3)
+rmse_4 = RMSE(model_4)
+rmse_5 = RMSE(model_5)
+rmse = c(rmse_1, rmse_2, rmse_3, rmse_4, rmse_5)
+
+summary(model_1)
+cbind(rs, rmse)
+```
+I think model 3 (predictors: lcavol, lweight, svi) is the best model because the r squared is not that low and the RMSE is not that high compared to the other models. According to the table provided by `summary(model_1)`, the p-value of these 3 predictors are the lowest (<0.005), which means there is a significant relationship between these predictors and lpsa.
+
+# Part 2
+```{r}
+library(MASS)
+data(Boston)
+
+set.seed(42)
+train_index = sample(1:nrow(Boston), 400)
+train = Boston[train_index,]
+test = Boston[-train_index,]
+
+RMSE_2 = function(model, data) {
+  yi = data[,c(length(data))]
+  yi_hat = predict(model, data)
+  sqrt(sum((yi_hat - yi)^2)/nrow(data))
+}
+
+model_1 = lm(medv ~ ., data = train) # all possible predictors
+model_2 = lm(medv ~ crim, data = train) # only crim
+model_3 = lm(medv ~ crim + nox + rm + dis + rad + ptratio + lstat, data = train)
+model_4 = lm(medv ~ crim + nox + rm + dis + rad + ptratio + lstat + tax + zn + black, data = train) # best
+model_5 = lm(medv ~ tax + zn + black, data = train)
+
+train1_rmse = RMSE_2(model_1, train)
+train2_rmse = RMSE_2(model_2, train)
+train3_rmse = RMSE_2(model_3, train)
+train4_rmse = RMSE_2(model_4, train)
+train5_rmse = RMSE_2(model_5, train)
+train_rmse = c(train1_rmse, train2_rmse, train3_rmse, train4_rmse, train5_rmse)
+
+test1_rmse = RMSE_2(model_1, test)
+test2_rmse = RMSE_2(model_2, test)
+test3_rmse = RMSE_2(model_3, test)
+test4_rmse = RMSE_2(model_4, test)
+test5_rmse = RMSE_2(model_5, test)
+test_rmse = c(test1_rmse, test2_rmse, test3_rmse, test4_rmse, test5_rmse)
+
+summary(model_1)
+cbind(train_rmse, test_rmse)
+```
+I think model 4 (predictors: crim, nox, rm, dis, rad, ptratio, lstat, tax, zn, black) is the best model because the RMSE is the second lowest. According to the table provided by `summary(model_1)`, the p-value of these predictors are < 0.001, which means there is a significant relationship between these predictors and medv.
+
+# Part 3
+**(a)**
+```{r}
+set.seed(42)
+n = 25
+
+x0 = rep(1, n)
+x1 = runif(n, 0, 10)
+x2 = runif(n, 0, 10)
+x3 = runif(n, 0, 10)
+x4 = runif(n, 0, 10)
+X = cbind(x0, x1, x2, x3, x4)
+C = solve(t(X) %*% X)
+y = rep(0, n)
+ex_4_data = data.frame(y, x1, x2, x3, x4)
+
+diag(C)
+ex_4_data[10,]
+```
+**(b)**
+```{r}
+beta_hat_1 = numeric(1500)
+beta_2_pval = numeric(1500)
+beta_3_pval = numeric(1500)
+```
+**(c)**
+```{r}
+for (i in 1:1500) {
+  ex_4_data[, 1] = 2 + 3*x1 + 4*x2 + 0*x3 + 1*x4 + rnorm(25, 0, 4)
+  y = ex_4_data[,1]
+  model = lm(y ~ x1 + x2 + x3 + x4)
+  beta_hat_1[i] = summary(model)$coef[2]
+  beta_2_pval[i] = summary(model)$coef[3,4]
+  beta_3_pval[i] = summary(model)$coef[4,4]
+}
+```
+**(d)**
+```{r}
+true_var = (16*C)[2,2]
+true_var
+```
+True distribution of $\hat\beta_1$ is mean: 3 and variance: `r true_var`.  
+**(e)**
+```{r}
+beta_hat_1_mean = mean(beta_hat_1)
+beta_hat_1_var = var(beta_hat_1)
+
+hist(beta_hat_1, prob = TRUE, breaks = 50)
+x = seq(0, 6, length=1000)
+y = dnorm(x, 3, sqrt(true_var))
+lines(x,y, col = "red")
+
+beta_hat_1_mean
+beta_hat_1_var
+```
+The mean and variance of `beta_hat_1` are close to 3 and `r true_var`.  
+The curve also matches the histogram.  
+**(f)**
+```{r}
+prop = mean(beta_3_pval < 0.05)
+prop
+```
+The proportion is `r prop`, which means most of the tests fail to reject the null hypothesis ($H_0: \beta_3 = 0$) with $\alpha = 0.05$.  
+It is expected because the true value of $\beta_3$ is 0.  
+**(g)**
+```{r}
+mean(beta_2_pval < 0.05)
+```
+The proportion is 1, which means all of the tests reject the null hypothesis ($H_0: \beta_2 = 0$) with $\alpha = 0.05$.  
+It is expected because the true value of $\beta_2$ is 4, which is far from 0.
